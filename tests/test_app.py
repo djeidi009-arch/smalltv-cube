@@ -69,12 +69,12 @@ def test_unchanged_frame_is_not_resent():
     assert dev.shown == ["jpg", "jpg"]  # сменилась минута
 
 
-def test_card_gif_then_holds_15s_then_clock_with_badge():
+def test_card_gif_then_holds_5s_then_clock_with_badge():
     app, dev, clock = make(FakeSource(SourceResult(notifications=[note(1)])))
-    clock.run(app, 14)
+    clock.run(app, 4)
     assert dev.shown == ["gif", "jpg"]  # выезд, затем статичная карточка
     clock.run(app, 2)
-    assert dev.shown == ["gif", "jpg", "jpg"]  # через 15 с снова часы
+    assert dev.shown == ["gif", "jpg", "jpg"]  # через 5 с снова часы
     assert app.snapshot.badges == {"telegram": 1}
 
 

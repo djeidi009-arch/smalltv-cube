@@ -15,7 +15,7 @@ from cube.sources.base import Source
 
 log = logging.getLogger("cube")
 
-CARD_S = 15
+CARD_S = 5
 INTRO_S = 2          # сколько держим GIF-выезд, прежде чем заменить его статичной карточкой
 RETRY_S = 30
 BURST_WINDOW = timedelta(minutes=1)
