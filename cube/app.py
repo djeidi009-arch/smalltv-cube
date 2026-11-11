@@ -40,6 +40,7 @@ class App:
         self._summary: Dict[str, Notification] = {}
         self._summary_n: Dict[str, int] = {}
         self._badge_at: Dict[str, datetime] = {}
+        self._badge_last: Dict[str, int] = {}
         self._usage_at = now
         self._sent: Optional[bytes] = None
         self._prepared = False
@@ -88,7 +89,7 @@ class App:
         recent = [t for t in self._recent.get(n.source, []) if now - t < BURST_WINDOW]
         recent.append(now)
         self._recent[n.source] = recent
-        self._set_badge(n.source, self.snapshot.badges.get(n.source, 0) + 1, now)
+        self._set_badge(n.source, self.snapshot.badges.get(n.source, 0) + 1, now, new=True)
         if len(recent) <= BURST_MAX:
             self.queue.append(n)
             return
@@ -102,13 +103,19 @@ class App:
         summary.title = f"Ещё {self._summary_n[n.source]}"
         summary.body = f"Последнее: {n.title}"
 
-    def _set_badge(self, source: str, value: int, now: datetime) -> None:
-        if value > 0:
-            if value > self.snapshot.badges.get(source, 0):
-                self._badge_at[source] = now
-            self.snapshot.badges[source] = value
-        else:
+    def _set_badge(self, source: str, value: int, now: datetime, new: bool = False) -> None:
+        # сравниваем с последним присланным, а не с показанным: погасший через час
+        # счётчик иначе считался бы нулём и то же число зажигало бы его снова
+        last = self._badge_last.get(source, 0)
+        self._badge_last[source] = value
+        if value <= 0:
             self.snapshot.badges.pop(source, None)
+            self._badge_at.pop(source, None)
+        elif new or value > last:
+            self.snapshot.badges[source] = value
+            self._badge_at[source] = now
+        elif source in self.snapshot.badges:  # часть прочитана — число меньше, час не продлеваем
+            self.snapshot.badges[source] = value
 
     def _expire(self, now: datetime) -> None:
         for src, at in list(self._badge_at.items()):

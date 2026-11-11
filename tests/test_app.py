@@ -128,3 +128,29 @@ def test_weather_kept_on_error_and_usage_hidden_when_stale():
     clock.t += timedelta(minutes=6)
     app.tick()
     assert app.snapshot.usage is None and app.snapshot.weather == w
+
+
+def test_same_badge_count_does_not_relight_after_an_hour():
+    src = FakeSource(*[SourceResult(badge=5) for _ in range(200)])
+    app, dev, clock = make(src)
+    for _ in range(62):  # опрос раз в минуту, всё время «5 непрочитанных», новых нет
+        app.tick()
+        clock.t += timedelta(minutes=1)
+    assert app.snapshot.badges == {}
+    src.results.insert(0, SourceResult(badge=6))  # появилось новое — снова горит
+    clock.t += timedelta(minutes=1)
+    app.tick()
+    assert app.snapshot.badges == {"fake": 6}
+
+
+def test_notification_after_expiry_relights_badge():
+    src = FakeSource(SourceResult(notifications=[note(1)]))
+    app, dev, clock = make(src)
+    app.tick()
+    clock.t += timedelta(minutes=61)
+    app.tick()
+    assert app.snapshot.badges == {}
+    src.results.append(SourceResult(notifications=[note(2)]))
+    clock.t += timedelta(minutes=1)
+    app.tick()
+    assert app.snapshot.badges == {"telegram": 1}
