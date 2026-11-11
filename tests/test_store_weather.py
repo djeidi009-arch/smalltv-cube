@@ -25,3 +25,9 @@ def test_weather_error_does_not_raise():
 
     res = WeatherSource(12.2, 109.2, transport=httpx.MockTransport(down)).poll()
     assert res.weather is None and res.error
+
+
+def test_weather_error_hides_url_and_coordinates():
+    res = WeatherSource(12.2388, 109.1967, transport=httpx.MockTransport(lambda r: httpx.Response(503))).poll()
+    assert res.error == "weather: HTTP 503"
+    assert "latitude" not in res.error and "open-meteo" not in res.error

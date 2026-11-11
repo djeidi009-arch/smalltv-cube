@@ -86,7 +86,7 @@ class TelegramSource:
                 client.add_event_handler(self.on_read, events.MessageRead(inbox=True))
                 loop.run_until_complete(self._serve(client))
             except Exception as e:
-                self._error = f"telegram: {type(e).__name__}: {e}"
+                self._error = f"telegram: {type(e).__name__}"
             finally:
                 loop.close()
             time.sleep(30)  # связь пропала — переподключаемся

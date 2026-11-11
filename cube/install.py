@@ -29,8 +29,13 @@ def _load(settings: Path) -> dict:
 
 
 def _save(settings: Path, data: dict) -> None:
+    settings = settings.resolve()  # симлинк (dotfiles) остаётся симлинком: пишем в его цель
     settings.parent.mkdir(parents=True, exist_ok=True)
     tmp = settings.with_suffix(".cube-tmp")
+    tmp.unlink(missing_ok=True)
+    tmp.touch(0o600)  # в settings.json бывают секреты: не открываем его шире исходного
+    if settings.exists():
+        shutil.copymode(settings, tmp)
     tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     os.replace(tmp, settings)
 
@@ -59,8 +64,9 @@ def _launchctl(*args: str) -> None:
 
 
 def install(cfg, settings: Path = SETTINGS, agents: Path = AGENTS, launchctl: bool = True) -> None:
-    if settings.exists():
-        shutil.copy2(settings, settings.with_name(settings.name + ".smalltv-cube.bak"))
+    bak = settings.with_name(settings.name + ".smalltv-cube.bak")
+    if settings.exists() and not bak.exists():  # копия — того, что было до первой установки
+        shutil.copy2(settings, bak)
     data = _strip(_load(settings))
     for event, state in HOOKS.items():
         data.setdefault("hooks", {}).setdefault(event, []).append(

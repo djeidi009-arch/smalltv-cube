@@ -51,3 +51,8 @@ def test_only_new_foreign_comments_notify_and_new_files_are_picked_up(tmp_path):
 def test_error_is_reported_without_token(tmp_path):
     res = make(tmp_path, lambda r: httpx.Response(403, json={"err": "no"})).fetch()
     assert res.error and "tkn" not in res.error and res.notifications == []
+
+
+def test_error_has_no_url_or_file_key(tmp_path):
+    res = make(tmp_path, lambda r: httpx.Response(404)).fetch()
+    assert res.error == "figma: HTTP 404"

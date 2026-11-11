@@ -45,6 +45,7 @@ class App:
         self._sent: Optional[bytes] = None
         self._prepared = False
         self._retry_at = now
+        self._intro: tuple = (None, b"")  # (карточка, её GIF): выезд рисуем и шлём один раз
 
     def tick(self) -> None:
         now = self.clock()
@@ -137,7 +138,9 @@ class App:
         if self.current is None:
             return render.encode_jpeg(render.render_clock(s)), "jpg"
         if (now - self._card_at).total_seconds() < INTRO_S:
-            return render.encode_gif(render.render_card_intro(self.current, s)), "gif"
+            if self._intro[0] is not self.current:
+                self._intro = (self.current, render.encode_gif(render.render_card_intro(self.current, s)))
+            return self._intro[1], "gif"
         return render.encode_jpeg(render.render_card(self.current, s)), "jpg"
 
     def _send(self, now: datetime, data: bytes, ext: str) -> None:

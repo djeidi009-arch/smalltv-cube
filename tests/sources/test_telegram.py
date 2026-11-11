@@ -40,3 +40,25 @@ def test_reading_chat_clears_badge():
     src.poll()
     asyncio.run(src.on_read(NS(chat_id=7)))
     assert src.poll().badge == 0
+
+
+def test_connection_error_is_only_a_type_name(monkeypatch):
+    import pytest
+    import telethon
+    import cube.sources.telegram as tg
+
+    class Stop(BaseException):
+        pass
+
+    def boom(*a, **k):
+        raise ValueError("api_hash=deadbeef at 149.154.167.51")
+
+    def stop(_):
+        raise Stop
+
+    monkeypatch.setattr(telethon, "TelegramClient", boom)
+    monkeypatch.setattr(tg.time, "sleep", stop)
+    src = TelegramSource()
+    with pytest.raises(Stop):
+        src._run(NS(data_dir=__import__("pathlib").Path("/nonexistent"), telegram_api_id=1, telegram_api_hash="h"))
+    assert src.poll().error == "telegram: ValueError"

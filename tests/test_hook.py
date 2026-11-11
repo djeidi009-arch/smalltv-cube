@@ -10,9 +10,9 @@ from cube.sources.claude_waiting import ClaudeWaitingSource
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def hook(tmp_path, state, session):
+def hook(tmp_path, state, session, event="Stop"):
     env = {**os.environ, "CUBE_DATA_DIR": str(tmp_path)}
-    stdin = json.dumps({"session_id": session, "cwd": "/Users/x/smalltv-cube", "hook_event_name": "Stop"})
+    stdin = json.dumps({"session_id": session, "cwd": "/Users/x/smalltv-cube", "hook_event_name": event})
     p = subprocess.run([sys.executable, "-m", "cube.hook", state], input=stdin, text=True,
                        cwd=ROOT, env=env, capture_output=True)
     assert p.returncode == 0, p.stderr
@@ -23,7 +23,7 @@ def test_hook_states_drive_indicator_and_card(tmp_path):
     assert src.poll().waiting == 0
     hook(tmp_path, "waiting", "s1")
     hook(tmp_path, "waiting", "s2")
-    hook(tmp_path, "waiting", "s2")  # Notification после Stop — то же ожидание
+    hook(tmp_path, "waiting", "s2", "Notification")  # после Stop — то же ожидание
     r = src.poll()
     assert r.waiting == 2
     assert [(n.source, n.title, n.body) for n in r.notifications] == [
@@ -33,6 +33,21 @@ def test_hook_states_drive_indicator_and_card(tmp_path):
     assert src.poll().waiting == 1
     hook(tmp_path, "answered", "s2")
     assert src.poll().waiting == 0
+
+
+def test_broken_state_file_error_is_only_a_type_name(tmp_path):
+    (tmp_path / "claude_sessions.json").write_text("{broken")
+    assert ClaudeWaitingSource(tmp_path / "claude_sessions.json").poll().error == "claude_waiting: JSONDecodeError"
+
+
+def test_stop_after_permission_request_is_a_new_wait(tmp_path):
+    src = ClaudeWaitingSource(tmp_path / "claude_sessions.json")
+    src.poll()
+    hook(tmp_path, "waiting", "s1", "Notification")  # просит разрешения
+    assert len(src.poll().notifications) == 1
+    # разрешение дано в терминале (UserPromptSubmit не приходит), Claude доработал ход
+    hook(tmp_path, "waiting", "s1", "Stop")
+    assert [n.title for n in src.poll().notifications] == ["Claude ждёт ответа"]
 
 
 def test_stale_sessions_ignored_and_bad_input_never_fails(tmp_path):

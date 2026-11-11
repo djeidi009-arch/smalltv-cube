@@ -29,10 +29,10 @@ class FakeCube:
 
 
 def test_show_replaces_own_file_and_keeps_foreign():
-    cube = FakeCube(files=("ezgif-1.jpg", "cube-old.jpg"))
+    cube = FakeCube(files=("ezgif-1.jpg", "cube-1731300000000.jpg"))
     c = CubeClient("cube.local", transport=httpx.MockTransport(cube))
     c.prepare()
-    assert "cube-old.jpg" not in cube.files  # остатки прошлого запуска убраны
+    assert "cube-1731300000000.jpg" not in cube.files  # остатки прошлого запуска убраны
     c.show(b"one", "jpg")
     first = cube.shown
     c.show(b"two", "gif")
@@ -50,3 +50,11 @@ def test_offline_raises_cube_offline():
     assert c.is_online() is False
     with pytest.raises(CubeOffline):
         c.show(b"x", "jpg")
+
+
+def test_prepare_deletes_only_own_numbered_frames():
+    foreign = {"cube-photo.jpg", "mycube-1.jpg", "my-cube-2.gif", "cube-3.jpg.bak", "ezgif-1.jpg"}
+    cube = FakeCube(files=foreign | {"cube-17.gif"})
+    CubeClient("cube.local", transport=httpx.MockTransport(cube)).prepare()
+    assert cube.files == foreign
+    assert [q["file"] for _, path, q in cube.calls if path == "/delete"] == ["/image/cube-17.gif"]

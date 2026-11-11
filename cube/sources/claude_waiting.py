@@ -25,7 +25,7 @@ class ClaudeWaitingSource:
             now = datetime.now(timezone.utc)
             waiting = {f"{sid}@{v['at']}": v for sid, v in data.items() if v["waiting"] and fresh(v["at"], now)}
         except Exception as e:
-            return SourceResult(error=f"claude_waiting: {type(e).__name__}: {e}")
+            return SourceResult(error=f"claude_waiting: {type(e).__name__}")
         cards = []
         if self._shown is not None:  # при старте программы уже ждущие — только индикатор, без карточек
             for key, v in waiting.items():

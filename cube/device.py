@@ -39,7 +39,7 @@ class CubeClient:
         self._get("/set", i_i=60, autoplay=0)
         # свои кадры, оставшиеся от прошлого запуска, иначе память кубика забьётся
         listing = self._get("/filelist", dir="/image/").text
-        for name in set(re.findall(rf"{OWN_PREFIX}[\w.-]+\.(?:jpg|gif)", listing)):
+        for name in set(re.findall(rf"(?<![\w-]){OWN_PREFIX}\d+\.(?:jpg|gif)(?![\w.-])", listing)):
             self._get("/delete", file=f"/image/{name}")
         self._current = None
 

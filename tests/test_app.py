@@ -154,3 +154,12 @@ def test_notification_after_expiry_relights_badge():
     clock.t += timedelta(minutes=1)
     app.tick()
     assert app.snapshot.badges == {"telegram": 1}
+
+
+def test_intro_gif_sent_once_even_if_clock_or_waiting_change():
+    src = FakeSource(SourceResult(notifications=[note(1)]), SourceResult(waiting=1, badge=3), SourceResult(waiting=2))
+    src.interval_s = 1
+    app, dev, clock = make(src)
+    clock.t = T0.replace(second=59)  # на втором тике меняется минута
+    clock.run(app, 5)
+    assert dev.shown.count("gif") == 1

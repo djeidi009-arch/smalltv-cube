@@ -46,3 +46,22 @@ def test_install_into_missing_settings(tmp_path):
     install(cfg, settings=settings, agents=tmp_path / "LA", launchctl=False)
     uninstall(cfg, settings=settings, agents=tmp_path / "LA", launchctl=False)
     assert json.loads(settings.read_text()) == {}
+
+
+def test_install_keeps_mode_symlink_and_first_backup(tmp_path):
+    import os
+    import stat
+    cfg = Config("cube", None, "1", None, None, 12.2, 109.2, "UTC", tmp_path / "data")
+    real = tmp_path / "dotfiles" / "settings.json"
+    real.parent.mkdir()
+    real.write_text('{"model": "opus"}')
+    os.chmod(real, 0o600)
+    link = tmp_path / "settings.json"
+    link.symlink_to(real)
+    install(cfg, settings=link, agents=tmp_path / "LA", launchctl=False)
+    assert link.is_symlink() and "cube.hook" in real.read_text()
+    assert stat.S_IMODE(real.stat().st_mode) == 0o600
+    bak = tmp_path / "settings.json.smalltv-cube.bak"
+    assert json.loads(bak.read_text()) == {"model": "opus"}
+    install(cfg, settings=link, agents=tmp_path / "LA", launchctl=False)
+    assert json.loads(bak.read_text()) == {"model": "opus"}  # исходная копия не затёрта

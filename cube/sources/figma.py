@@ -56,8 +56,10 @@ class FigmaSource(Background):
             self._store.set("since", since)
             self._store.set("seen", sorted(seen & alive))  # удалённые комментарии забываем, файл не растёт
             return SourceResult(notifications=out)
-        except Exception as e:  # httpx-ошибки содержат URL, но не заголовок с токеном
-            return SourceResult(error=f"figma: {type(e).__name__}: {e}")
+        except httpx.HTTPStatusError as e:  # текст ошибки содержит URL с ключом файла — в лог не берём
+            return SourceResult(error=f"figma: HTTP {e.response.status_code}")
+        except Exception as e:
+            return SourceResult(error=f"figma: {type(e).__name__}")
 
 
 def create(cfg) -> Optional[FigmaSource]:

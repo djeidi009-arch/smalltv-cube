@@ -38,5 +38,7 @@ class WeatherSource:
                 temp_c=float(cur["temperature_2m"]), code=code,
                 label_ru=LABELS.get(code, "—"), fetched_at=datetime.now(timezone.utc),
             ))
+        except httpx.HTTPStatusError as e:  # текст ошибки содержит URL с координатами — в лог не берём
+            return SourceResult(error=f"weather: HTTP {e.response.status_code}")
         except Exception as e:  # источник никогда не роняет главный цикл
-            return SourceResult(error=f"weather: {type(e).__name__}: {e}")
+            return SourceResult(error=f"weather: {type(e).__name__}")
