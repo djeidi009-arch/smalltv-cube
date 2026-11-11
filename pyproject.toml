@@ -1,0 +1,23 @@
+[project]
+name = "smalltv-cube"
+version = "0.1.0"
+description = "Часы, погода и уведомления на кубике GeekMagic SmallTV-Ultra"
+requires-python = ">=3.9"
+dependencies = [
+    "pillow",
+    "httpx",
+    "telethon",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
