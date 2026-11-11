@@ -1,3 +1,7 @@
+import http.server
+import socket
+import threading
+
 import httpx
 import pytest
 
@@ -58,3 +62,51 @@ def test_prepare_deletes_only_own_numbered_frames():
     CubeClient("cube.local", transport=httpx.MockTransport(cube)).prepare()
     assert cube.files == foreign
     assert [q["file"] for _, path, q in cube.calls if path == "/delete"] == ["/image/cube-17.gif"]
+
+
+class _DoubleLengthHandler(http.server.BaseHTTPRequestHandler):
+    """Как прошивка Ultra-V9.0.51 на /filelist и /doUpload: Content-Length дважды."""
+
+    extra = 0  # насколько врёт: + — второй больше, - — первый больше
+
+    def _reply(self):
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        body = b"<table><tr><td>cube-5.jpg</td></tr></table>" if self.path.startswith("/filelist") else b"OK"
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body) + max(-self.extra, 0)))
+        self.send_header("Content-Length", str(len(body) + max(self.extra, 0)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    do_GET = do_POST = _reply
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.mark.parametrize("extra", [0, 7, -7])
+def test_duplicate_content_length_is_not_offline(extra):
+    handler = type("H", (_DoubleLengthHandler,), {"extra": extra})
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        c = CubeClient(f"127.0.0.1:{srv.server_port}")
+        assert c.is_online()
+        c.prepare()
+        c.show(b"one", "jpg")
+        c.show(b"two", "gif")
+    finally:
+        srv.shutdown()
+
+
+def test_refused_and_silent_cube_is_offline():
+    with socket.socket() as s:  # порт, который никто не слушает
+        s.bind(("127.0.0.1", 0))
+        refused = s.getsockname()[1]
+    with pytest.raises(CubeOffline):
+        CubeClient(f"127.0.0.1:{refused}").show(b"x", "jpg")
+    with socket.socket() as silent:  # принимает соединение, но не отвечает
+        silent.bind(("127.0.0.1", 0))
+        silent.listen()
+        with pytest.raises(CubeOffline):
+            CubeClient(f"127.0.0.1:{silent.getsockname()[1]}", timeout=0.3).show(b"x", "jpg")

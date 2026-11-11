@@ -1,6 +1,7 @@
 """Общение с кубиком SmallTV-Ultra (родная прошивка, режим «фотоальбом»)."""
 from __future__ import annotations
 
+import http.client
 import re
 import time
 from typing import Literal, Optional
@@ -14,9 +15,36 @@ class CubeOffline(Exception):
     pass
 
 
+class _StdlibTransport(httpx.BaseTransport):
+    """Прошивка шлёт Content-Length дважды (/filelist, /doUpload), иногда с разными числами;
+    h11 такой ответ отвергает, а http.client терпит."""
+
+    def __init__(self, timeout: float):
+        self._timeout = timeout
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        conn = http.client.HTTPConnection(request.url.host, request.url.port, timeout=self._timeout)
+        try:
+            # close: тело кончается обрывом, а не по Content-Length, которому нельзя верить
+            headers = {**request.headers, "Connection": "close"}
+            conn.request(request.method, request.url.raw_path.decode(), request.read(), headers)
+            r = conn.getresponse()
+            try:
+                body = r.read()
+            except http.client.IncompleteRead as e:  # первый Content-Length больше настоящего
+                body = e.partial
+            return httpx.Response(r.status, headers=r.getheaders(), content=body)
+        except (OSError, http.client.HTTPException) as e:  # отказ, таймаут, обрыв
+            raise httpx.TransportError(str(e)) from e
+        finally:
+            conn.close()
+
+
 class CubeClient:
     def __init__(self, host: str, timeout: float = 5.0, transport: Optional[httpx.BaseTransport] = None):
-        self._http = httpx.Client(base_url=f"http://{host}", timeout=timeout, transport=transport)
+        self._http = httpx.Client(
+            base_url=f"http://{host}", timeout=timeout, transport=transport or _StdlibTransport(timeout)
+        )
         self._current: Optional[str] = None
 
     def _get(self, path: str, **params) -> httpx.Response:
