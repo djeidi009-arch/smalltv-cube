@@ -1,12 +1,48 @@
 <!-- autopilot:start -->
 # Кубик-экран
 
-Mac mini рисует картинки 240×240 (часы, погода, уведомления из Figma, Telegram, Claude Code) и отправляет их на настольный кубик GeekMagic SmallTV-Ultra в домашнем Wi‑Fi.
+Mac mini рисует кадры 240×240 и шлёт их на настольный кубик GeekMagic SmallTV-Ultra: часы, погода, уведомления Figma/Telegram, лимиты Claude Code, «Claude ждёт ответа». Для владельца кубика, дома в Wi‑Fi.
 
 ## Команды
 
 | Команда | Что делает |
 |---------|------------|
+| `uv sync` | поставить зависимости |
+| `uv run pytest -q` | все тесты (40 passed) |
+| `uv run pytest -q tests/<файл>.py` | один файл тестов |
+| `uv run python -m cube status` | состояние кубика и источников |
+| `uv run python -m cube preview <папка>` | отрисовать кадры в папку, кубик не нужен |
+| `uv run python -m cube run` | основной цикл |
+| `uv run python -m cube telegram-login` | войти в Telegram (интерактивно) |
+| `uv run python -m cube install` / `uninstall` | автозапуск и хуки Claude Code; меняют `~/Library/LaunchAgents` и `~/.claude/settings.json` — только с согласия пользователя |
+| `python -m cube.hook waiting\|answered` | хук Claude Code, JSON хука на stdin |
+
+`CUBE_DATA_DIR` переопределяет папку данных — для экспериментов ставь её во временную.
+
+## Где что
+
+- `cube/render.py` — внешний вид кадров и анимации; решения — `docs/design.md`.
+- `cube/app.py` — очередь, расписание, счётчики и их TTL.
+- `cube/device.py` — протокол кубика (HTTP).
+- `cube/sources/` — источники; общий каркас `base.py` (`Background`).
+- `cube/install.py` — автозапуск (launchd) и хуки; `cube/hook.py` — сам хук.
+- `cube/__main__.py` — команды; `cube/config.py` — настройки из `.env`.
+
+## Подводные камни
+
+- Прошивка кубика Ultra-V9.0.51 отдаёт `Content-Length` дважды на `/filelist` и `/doUpload`: `device.py` ходит через `http.client` (`_StdlibTransport`), не через httpx-транспорт.
+- Запрещены `/set?reset`, `/set?reboot`, `/set?clear=image`. Удалять только свои `cube-<цифры>.(jpg|gif)` — на кубике лежат картинки пользователя.
+- `poll()` источника должен быть быстрым: сеть — в `base.Background.fetch()`.
+- Ошибки источников — только «источник: Тип» или «HTTP код», без текста исключения: там URL с координатами и ключами.
+- `install` дописывает свои хуки с меткой `-m cube.hook` и сохраняет чужие; перед первой правкой делает `.smalltv-cube.bak`.
+- У Figma API нет «прочитано» — счётчик гаснет через час (`BADGE_TTL` в `app.py`).
+- Токен Claude читается из Связки ключей и никогда не пишется на диск.
+- Тесты не пишут в реальные `~/.claude` и `~/Library` (пути передаются параметрами) — так и держать.
+- `python` вне корня проекта не видит пакет `cube` (`package = false`); хук поэтому делает `cd` в корень.
+
+## Окружение
+
+Имена из `.env`, значений здесь нет: `CUBE_HOST` — адрес кубика; `FIGMA_TOKEN`, `FIGMA_PROJECT_ID` — Figma; `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` — Telegram; `CUBE_DATA_DIR` — папка данных; `CUBE_LAT`, `CUBE_LON` — координаты погоды; `CUBE_TZ` — часовой пояс.
 
 ## Как здесь работает Autopilot
 
