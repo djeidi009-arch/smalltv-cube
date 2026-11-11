@@ -137,3 +137,23 @@ class App:
 - `render.*` — чистые функции, проверяются по размеру/непустоте и через `preview`.
 
 ## Что построили законченные таски
+
+### Таск 01
+- `CubeClient(host, timeout=5.0, transport=None)`; `prepare()` удаляет оставшиеся с прошлого запуска `cube-*`.
+- `WeatherSource(lat, lon, transport=None)`, name="weather", interval 900 с.
+- `render.SOURCES`, `render.weather_kind(code)`.
+- `cube.sources.build_sources(cfg)` импортирует `cube.sources.{figma,telegram,claude_usage,claude_waiting}`, если модуль есть, и вызывает в нём `create(cfg) -> Source | None`.
+- `__main__`: `telegram-login` → `cube.sources.telegram.login(cfg)`; `install`/`uninstall` → `cube.install.install(cfg)` / `uninstall(cfg)`.
+- Необязательные .env: CUBE_DATA_DIR, CUBE_LAT, CUBE_LON, CUBE_TZ.
+- Счётчик бейджа растёт по `result.badge`; полоска лимита прячется, если 15 мин нет свежих `usage`.
+
+### Таск 02
+- `base.Background`: `start()`, `fetch() -> SourceResult` в своём потоке раз в `every_s`, `poll()` отдаёт накопленное.
+- `FigmaSource(token, project_id, store, transport=None)`; `ClaudeUsageSource(store, tz, token=keychain_token, transport=None)`; `TelegramSource` (`on_message`/`on_read` async, `start(cfg)`); `telegram.login(cfg)`, `session_path(cfg)`; `ClaudeWaitingSource(path)`.
+- Состояние источников — отдельные файлы `figma.json`, `claude_usage.json` в data_dir.
+- `hook.record(path, session_id, waiting, project)`, файл `claude_sessions.json` `{sid: {waiting, at, project}}`.
+- `install(cfg, settings=~/.claude/settings.json, agents=~/Library/LaunchAgents, launchctl=True)` / `uninstall(...)`; хуки Stop, Notification → waiting; UserPromptSubmit, SessionEnd → answered; метка `-m cube.hook`; копия `settings.json.smalltv-cube.bak`.
+
+### F1
+- `hook.record(path, session_id, waiting, project="", event="")` — event = hook_event_name.
+- Формат error: "<источник>: HTTP <status>" или "<источник>: <ИмяТипа>".
