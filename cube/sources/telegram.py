@@ -118,12 +118,36 @@ def create(cfg) -> Optional[TelegramSource]:
 
 
 def login(cfg) -> None:
-    """Интерактивный вход: телефон, код из Telegram и, если есть, облачный пароль вводит сам пользователь."""
+    """Вход по QR-коду: пользователь сканирует его телефоном (Настройки → Устройства → Подключить устройство).
+    Облачный пароль, если есть, вводит сам пользователь."""
     if not (cfg.telegram_api_id and cfg.telegram_api_hash):
         sys.exit("Сначала впиши TELEGRAM_API_ID и TELEGRAM_API_HASH в файл .env (см. README.md).")
+    import getpass
+    import qrcode
+    from telethon.errors import SessionPasswordNeededError
     from telethon.sync import TelegramClient
 
-    with TelegramClient(str(session_path(cfg)), cfg.telegram_api_id, cfg.telegram_api_hash) as client:
+    client = TelegramClient(str(session_path(cfg)), cfg.telegram_api_id, cfg.telegram_api_hash)
+    client.connect()
+    try:
+        if not client.is_user_authorized():
+            qr = client.qr_login()
+            while True:
+                q = qrcode.QRCode(border=1)
+                q.add_data(qr.url)
+                q.print_ascii(invert=True)
+                print("Отсканируй QR телефоном: Telegram → Настройки → Устройства → Подключить устройство.")
+                try:
+                    client.loop.run_until_complete(qr.wait(timeout=60))
+                    break
+                except SessionPasswordNeededError:
+                    client.sign_in(password=getpass.getpass("Облачный пароль Telegram: "))
+                    break
+                except TimeoutError:
+                    print("QR устарел — показываю новый.")
+                    client.loop.run_until_complete(qr.recreate())
         me = client.get_me()
+    finally:
+        client.disconnect()
     os.chmod(f"{session_path(cfg)}.session", 0o600)  # сессия = доступ к аккаунту, только для владельца
     print(f"Готово: вход выполнен как {_name(me)}. Сессия сохранена в {cfg.data_dir}.")

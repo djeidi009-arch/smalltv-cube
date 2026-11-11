@@ -8,6 +8,7 @@ dependencies = [
     "httpx",
     "telethon",
     "python-dotenv",
+    "qrcode>=8.2",
 ]
 
 [dependency-groups]
