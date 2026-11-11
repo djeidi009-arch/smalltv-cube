@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from cube import render
 from cube.model import ClaudeUsage, Notification, Snapshot, Weather
 
-LATER = {  # команды таска 02: модуль, функция
+LATER = {  # команда: модуль, функция
     "telegram-login": ("cube.sources.telegram", "login"),
     "install": ("cube.install", "install"),
     "uninstall": ("cube.install", "uninstall"),
@@ -80,11 +80,7 @@ def main(argv=None) -> None:
         return status(load_config())
     if cmd in LATER:
         mod, fn = LATER[cmd]
-        try:
-            m = importlib.import_module(mod)
-        except ModuleNotFoundError:
-            sys.exit(f"{cmd}: появится в таске 02")
-        return getattr(m, fn)(load_config())
+        return getattr(importlib.import_module(mod), fn)(load_config())
     sys.exit(__doc__)
 
 
