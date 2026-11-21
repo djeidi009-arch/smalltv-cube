@@ -102,7 +102,7 @@ def _top_row(c: Canvas, s: Snapshot, left: str) -> None:
         c.text((16, y), left, 22, "Bold", anchor="lm")
 
 
-PROVIDERS = (("claude", "Claude"), ("codex", "Codex"), ("opencode", "OpenCode Go"))
+PROVIDERS = (("claude", "Claude"), ("codex", "Codex"), ("opencode", "Open Code"))
 
 
 def _meter(c: Canvas, right: int, y: int, used_pct: Optional[float]) -> None:
