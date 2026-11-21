@@ -4,12 +4,12 @@ from __future__ import annotations
 import importlib
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from cube import render
-from cube.model import ClaudeUsage, Notification, Snapshot, Weather
+from cube.model import Notification, Snapshot, Usage
 
 LATER = {  # команда: модуль, функция
     "telegram-login": ("cube.sources.telegram", "login"),
@@ -32,19 +32,16 @@ def run(cfg) -> None:
 def preview(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     now = datetime(2026, 11, 11, 16, 42, tzinfo=ZoneInfo("Asia/Ho_Chi_Minh"))
-    w = Weather(28.4, 2, "Облачно", now)
-    u = ClaudeUsage(42, now + timedelta(hours=2))
-    full = Snapshot(now, w, u, {"figma": 2, "telegram": 5}, 0)
-    clocks = {
+    usage = {"claude": Usage(42, 16), "codex": Usage(87, 96), "opencode": Usage(100, 100)}
+    full = Snapshot(now, usage=usage, badges={"figma": 2, "telegram": 5})
+    limits = {
         "empty": Snapshot(now),
-        "weather": Snapshot(now, w),
-        "badges": Snapshot(now, w, None, {"figma": 2, "telegram": 5}),
-        "usage": Snapshot(now, w, u),
-        "usage-high": Snapshot(now, Weather(26, 61, "Дождь", now), ClaudeUsage(87, u.resets_at)),
-        "waiting": Snapshot(now, w, u, {"telegram": 1}, 2),
+        "filled": full,
+        "partial": Snapshot(now, usage={"codex": Usage(weekly=32)}),
+        "waiting": Snapshot(now, usage=usage, badges={"figma": 105, "telegram": 301}, claude_waiting=105),
     }
-    for name, s in clocks.items():
-        render.render_clock(s).save(out / f"clock-{name}.png")
+    for name, s in limits.items():
+        render.render_limits(s).save(out / f"limits-{name}.png")
     cards = {
         "figma": Notification("figma", "Анна · Лендинг v3", "Давай сделаем кнопку заметнее и поднимем блок с ценами выше", now, "f"),
         "telegram": Notification("telegram", "Мама", "Позвони, когда освободишься", now, "t"),

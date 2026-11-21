@@ -26,15 +26,14 @@ class Weather:
 
 
 @dataclass
-class ClaudeUsage:
-    used_pct: float
-    resets_at: Optional[datetime]
+class Usage:
+    five_hour: Optional[float] = None
+    weekly: Optional[float] = None
 
 
 @dataclass
 class Snapshot:
     now: datetime
-    weather: Optional[Weather] = None
-    usage: Optional[ClaudeUsage] = None
+    usage: Dict[str, Usage] = field(default_factory=dict)
     badges: Dict[str, int] = field(default_factory=dict)
     claude_waiting: int = 0

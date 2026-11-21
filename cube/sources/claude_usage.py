@@ -1,4 +1,4 @@
-"""Лимит 5-часового окна Claude Code. Токен Claude Code читается из Связки ключей и нигде не сохраняется."""
+"""Лимиты Claude Code. Токен Claude Code читается из Связки ключей и нигде не сохраняется."""
 from __future__ import annotations
 
 import json
@@ -10,8 +10,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from cube.model import ClaudeUsage, Notification
-from cube.sources.base import Background, SourceResult
+from cube.model import Notification, Usage
+from cube.sources.base import Background, SourceResult, used_percent
 from cube.store import Store
 
 URL = "https://api.anthropic.com/api/oauth/usage"
@@ -39,14 +39,21 @@ class ClaudeUsageSource(Background):
             r = self._http.get(URL, headers={"Authorization": f"Bearer {self._token()}",
                                              "anthropic-beta": "oauth-2025-04-20"})
             r.raise_for_status()
-            five = r.json()["five_hour"]
-            pct = float(five["utilization"])
-            resets = datetime.fromisoformat(five["resets_at"]) if five.get("resets_at") else None
+            data = r.json()
+            five = data.get("five_hour") or {}
+            week = data.get("seven_day") or {}
+            pct = used_percent(five.get("utilization"))
+            weekly = used_percent(week.get("utilization"))
+            reset_at = five.get("resets_at")
+            resets = datetime.fromisoformat(reset_at.replace("Z", "+00:00")) if reset_at else None
         except httpx.HTTPStatusError as e:
             return SourceResult(error=f"claude_usage: HTTP {e.response.status_code}")
         except Exception as e:  # только тип: текст исключения может содержать ответ или токен
             return SourceResult(error=f"claude_usage: {type(e).__name__}")
-        return SourceResult(usage=ClaudeUsage(pct, resets), notifications=self._alerts(pct, resets))
+        if pct is None and weekly is None:
+            return SourceResult(error="claude_usage: no usage windows")
+        alerts = self._alerts(pct, resets) if pct is not None else []
+        return SourceResult(usage={"claude": Usage(pct, weekly)}, notifications=alerts)
 
     def _alerts(self, pct: float, resets: Optional[datetime]) -> list:
         window = self._store.get("window")

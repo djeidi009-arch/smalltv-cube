@@ -4,7 +4,7 @@ from pathlib import Path
 from cube.app import App
 from cube.config import Config
 from cube.device import CubeOffline
-from cube.model import ClaudeUsage, Notification
+from cube.model import Notification, Usage
 from cube.sources.base import SourceResult
 
 T0 = datetime(2026, 11, 11, 16, 42, 5, tzinfo=timezone(timedelta(hours=7)))
@@ -63,18 +63,16 @@ def make(*sources, dev=None):
 
 def test_unchanged_frame_is_not_resent():
     app, dev, clock = make(FakeSource())
-    clock.run(app, 30)  # те же ЧЧ:ММ
+    clock.run(app, 90)
     assert dev.shown == ["jpg"]
-    clock.run(app, 60)
-    assert dev.shown == ["jpg", "jpg"]  # сменилась минута
 
 
-def test_card_gif_then_holds_5s_then_clock_with_badge():
+def test_card_gif_then_holds_5s_then_limits_with_badge():
     app, dev, clock = make(FakeSource(SourceResult(notifications=[note(1)])))
     clock.run(app, 4)
     assert dev.shown == ["gif", "jpg"]  # выезд, затем статичная карточка
     clock.run(app, 2)
-    assert dev.shown == ["gif", "jpg", "jpg"]  # через 5 с снова часы
+    assert dev.shown == ["gif", "jpg", "jpg"]  # через 5 с снова лимиты
     assert app.snapshot.badges == {"telegram": 1}
 
 
@@ -114,20 +112,22 @@ def test_offline_cube_retries_every_30s_and_resends():
     assert dev.shown == ["jpg"] and dev.prepared == 1
 
 
-def test_weather_kept_on_error_and_usage_hidden_when_stale():
-    from cube.model import Weather
-    w = Weather(28, 0, "Ясно", T0)
-    u = ClaudeUsage(40, None)
-    src = FakeSource(SourceResult(weather=w, usage=u), SourceResult(error="offline"))
-    src.interval_s = 600
+def test_limits_update_and_expire_per_provider():
+    claude = Usage(40, 20)
+    codex = Usage(weekly=80)
+    src = FakeSource(
+        SourceResult(usage={"claude": claude, "codex": Usage(35, 75)}),
+        SourceResult(usage={"codex": codex}),
+    )
     app, dev, clock = make(src)
     app.tick()
     clock.t += timedelta(minutes=10)
     app.tick()
-    assert app.snapshot.weather == w and app.snapshot.usage == u
+    assert app.snapshot.usage == {"claude": claude, "codex": codex}
     clock.t += timedelta(minutes=6)
     app.tick()
-    assert app.snapshot.usage is None and app.snapshot.weather == w
+    assert app.snapshot.usage == {"codex": codex}
+    assert dev.shown == ["jpg", "jpg", "jpg"]
 
 
 def test_same_badge_count_does_not_relight_after_an_hour():
@@ -156,10 +156,9 @@ def test_notification_after_expiry_relights_badge():
     assert app.snapshot.badges == {"telegram": 1}
 
 
-def test_intro_gif_sent_once_even_if_clock_or_waiting_change():
-    src = FakeSource(SourceResult(notifications=[note(1)]), SourceResult(waiting=1, badge=3), SourceResult(waiting=2))
+def test_intro_gif_sent_once_even_if_limits_or_waiting_change():
+    src = FakeSource(SourceResult(notifications=[note(1)]), SourceResult(waiting=1, badge=3, usage={"claude": Usage(40)}), SourceResult(waiting=2))
     src.interval_s = 1
     app, dev, clock = make(src)
-    clock.t = T0.replace(second=59)  # на втором тике меняется минута
     clock.run(app, 5)
     assert dev.shown.count("gif") == 1

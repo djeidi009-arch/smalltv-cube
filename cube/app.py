@@ -21,7 +21,7 @@ RETRY_S = 30
 BURST_WINDOW = timedelta(minutes=1)
 BURST_MAX = 3
 BADGE_TTL = timedelta(hours=1)
-USAGE_TTL = timedelta(minutes=15)  # лимит не обновлялся 3 опроса подряд — полоску прячем
+USAGE_TTL = timedelta(minutes=15)
 
 
 class App:
@@ -41,7 +41,7 @@ class App:
         self._summary_n: Dict[str, int] = {}
         self._badge_at: Dict[str, datetime] = {}
         self._badge_last: Dict[str, int] = {}
-        self._usage_at = now
+        self._usage_at: Dict[str, datetime] = {}
         self._sent: Optional[bytes] = None
         self._prepared = False
         self._retry_at = now
@@ -71,14 +71,13 @@ class App:
             try:
                 r = src.poll()
             except Exception as e:  # источник обязан не бросать, но цикл важнее
-                log.warning("%s: %s", src.name, e)
+                log.warning("%s: %s", src.name, type(e).__name__)
                 continue
             if r.error:
                 log.warning("%s", r.error)
-            if r.weather is not None:
-                self.snapshot.weather = r.weather
-            if r.usage is not None:
-                self.snapshot.usage, self._usage_at = r.usage, now
+            self.snapshot.usage.update(r.usage)
+            for provider in r.usage:
+                self._usage_at[provider] = now
             if r.waiting is not None:
                 self.snapshot.claude_waiting = r.waiting
             for n in r.notifications:
@@ -123,8 +122,10 @@ class App:
             if now - at >= BADGE_TTL:
                 self.snapshot.badges.pop(src, None)
                 del self._badge_at[src]
-        if self.snapshot.usage is not None and now - self._usage_at > USAGE_TTL:
-            self.snapshot.usage = None
+        for provider, at in list(self._usage_at.items()):
+            if now - at > USAGE_TTL:
+                del self.snapshot.usage[provider]
+                del self._usage_at[provider]
         if self.current and (now - self._card_at).total_seconds() >= CARD_S:
             self.current = None
         if self.current is None and self.queue:
@@ -136,7 +137,7 @@ class App:
     def _frame(self, now: datetime):
         s = self.snapshot
         if self.current is None:
-            return render.encode_jpeg(render.render_clock(s)), "jpg"
+            return render.encode_jpeg(render.render_limits(s)), "jpg"
         if (now - self._card_at).total_seconds() < INTRO_S:
             if self._intro[0] is not self.current:
                 self._intro = (self.current, render.encode_gif(render.render_card_intro(self.current, s)))

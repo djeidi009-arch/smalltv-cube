@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol
 
-from cube.model import ClaudeUsage, Notification, Weather
+from cube.model import Notification, Usage, Weather
 
 
 @dataclass
@@ -13,7 +14,7 @@ class SourceResult:
     notifications: List[Notification] = field(default_factory=list)
     badge: Optional[int] = None
     weather: Optional[Weather] = None
-    usage: Optional[ClaudeUsage] = None
+    usage: Dict[str, Usage] = field(default_factory=dict)
     waiting: Optional[int] = None
     error: Optional[str] = None
 
@@ -46,7 +47,8 @@ class Background:
             with self._lock:
                 a = self._acc
                 a.notifications += r.notifications
-                for f in ("badge", "weather", "usage", "waiting", "error"):
+                a.usage.update(r.usage)
+                for f in ("badge", "weather", "waiting", "error"):
                     if getattr(r, f) is not None:
                         setattr(a, f, getattr(r, f))
             time.sleep(self.every_s)
@@ -55,3 +57,11 @@ class Background:
         with self._lock:
             r, self._acc = self._acc, SourceResult()
         return r
+
+
+def used_percent(value) -> Optional[float]:
+    try:
+        pct = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return min(100.0, max(0.0, pct)) if math.isfinite(pct) else None

@@ -11,7 +11,7 @@ from cube.sources.base import SourceResult
 
 URL = "https://api.open-meteo.com/v1/forecast"
 
-# коды WMO → подпись; иконку по тому же коду рисует render.weather_kind
+# коды WMO → подпись
 LABELS = {0: "Ясно", 1: "Малооблачно", 2: "Облачно", 3: "Пасмурно", 45: "Туман", 48: "Туман"}
 LABELS.update({c: "Морось" for c in (51, 53, 55, 56, 57)})
 LABELS.update({c: "Дождь" for c in (61, 63, 65, 66, 67, 80, 81, 82)})

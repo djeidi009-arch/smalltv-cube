@@ -1,4 +1,4 @@
-"""Сборка источников. Погода есть всегда; остальные — модули таска 02, если они есть."""
+"""Сборка источников кубика."""
 from __future__ import annotations
 
 import importlib
@@ -6,13 +6,12 @@ from typing import List
 
 from cube.config import Config
 from cube.sources.base import Source
-from cube.sources.weather import WeatherSource
 
-OPTIONAL = ("figma", "telegram", "claude_usage", "claude_waiting")
+OPTIONAL = ("figma", "telegram", "claude_usage", "codex_usage", "opencode_usage", "claude_waiting")
 
 
 def build_sources(cfg: Config) -> List[Source]:
-    sources: List[Source] = [WeatherSource(cfg.lat, cfg.lon)]
+    sources: List[Source] = []
     for name in OPTIONAL:
         try:
             mod = importlib.import_module(f"cube.sources.{name}")

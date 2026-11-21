@@ -1,14 +1,14 @@
 <!-- autopilot:start -->
 # Кубик-экран
 
-Mac mini рисует кадры 240×240 и шлёт их на настольный кубик GeekMagic SmallTV-Ultra: часы, погода, уведомления Figma/Telegram, лимиты Claude Code, «Claude ждёт ответа». Для владельца кубика, дома в Wi‑Fi.
+Mac mini рисует кадры 240×240 и шлёт их на настольный кубик GeekMagic SmallTV-Ultra: лимиты Claude Code, Codex и OpenCode Go, уведомления Figma/Telegram, «Claude ждёт ответа». Для владельца кубика, дома в Wi‑Fi.
 
 ## Команды
 
 | Команда | Что делает |
 |---------|------------|
 | `uv sync` | поставить зависимости |
-| `uv run pytest -q` | все тесты (40 passed) |
+| `uv run pytest -q` | все тесты |
 | `uv run pytest -q tests/<файл>.py` | один файл тестов |
 | `uv run python -m cube status` | состояние кубика и источников |
 | `uv run python -m cube preview <папка>` | отрисовать кадры в папку, кубик не нужен |
